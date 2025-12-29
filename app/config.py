@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     database_name: str
     checkpointer_database_name: str
     groq_api_key: str
+    langsmith_tracing: bool
+    langsmith_endpoint: str
+    langsmith_api_key: str
+    langsmith_project: str
+    
     class Config:
         env_file = ".env"
     
+settings=Settings()

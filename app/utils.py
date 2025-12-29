@@ -10,8 +10,6 @@ from .config import settings
 BASE_DIR = Path(__file__).resolve().parent.parent
 CHROMA_DIR = BASE_DIR / "embeddings"
 
-load_dotenv()
-
 llm=ChatGroq(
     model="llama-3.1-8b-instant",
     temperature=0.01,
@@ -57,3 +55,8 @@ def generate_initial_state(msg: str):
 DB_URI=f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.checkpointer_database_name}?sslmode=disable"
 _checkpointer_cm = PostgresSaver.from_conn_string(DB_URI)
 checkpointer = _checkpointer_cm.__enter__()
+
+# Run these code lines below when you run the file for the first time to set up the checkpointer in database 
+
+# with PostgresSaver.from_conn_string(DB_URI) as saver:
+#     saver.setup()
