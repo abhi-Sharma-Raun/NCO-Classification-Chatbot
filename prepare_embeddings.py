@@ -3,8 +3,10 @@ import chromadb
 from chromadb.utils import embedding_functions
 from tqdm import tqdm
 
-df9=pd.read_csv(r"C:\Users\abhin\Jupyter notebook\nco_data_prepare_files\Embedding_datasets\EmbeddingsV-0.2.csv")
+df9=pd.read_csv(r".\EmbeddingsV-0.2.csv")  # CDownload the dataset and add it in the current project folder
 def get_metadata(df_row):
+    '''Make the metadata for the embeddings having code, family_name, division_name, title'''
+    
     return {
         "occupation_code": df_row['code'],
         "family_name": df_row['family_name'],
