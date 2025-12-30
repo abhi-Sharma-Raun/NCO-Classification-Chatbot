@@ -1,10 +1,10 @@
 from .database import Base
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql.sqltypes import TIMESTAMP, Boolean
-from sqlalchemy import Column,String
+from sqlalchemy import Column
 from sqlalchemy.sql.expression import text
 
-class ChatSession(Base):
+class ChatSession(Base):   
     __tablename__="chatsession"
     session_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     thread_id = Column(UUID(as_uuid=True), nullable=False)
