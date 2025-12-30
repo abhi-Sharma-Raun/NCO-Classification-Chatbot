@@ -129,6 +129,8 @@ Checkpoint data is deleted when a thread completes to avoid stale state reuse.
 ### Prerequisites
 * Python 3.10+
 * PostgreSQL
+* Download the dataset from the link:
+`https://www.kaggle.com/datasets/shriabhinandansharma/nco-occupation-descriptions-dataset`
 * Groq API key
 * langsmith api key (optional if you want tracing on langsmith)
 
@@ -149,20 +151,19 @@ pip install -r requirements.txt
 ### 4.Environment Variables
 ```
 database_username=postgres
-database_password=postgres
+database_password=database_password
 database_hostname=localhost
 database_port=5432
-database_name=nco_db
-checkpointer_database_name=nco_checkpoints
-
+database_name=your_database_name
+checkpointer_database_name=checkpointer_database_name
 groq_api_key=YOUR_GROQ_KEY
-
-langsmith_tracing=false
-langsmith_endpoint=
-langsmith_api_key=
-langsmith_project=
+langsmith_tracing=true
+langsmith_endpoint=https://api.smith.langchain.com
+langsmith_api_key=langsmith_api_key
+langsmith_project=langsmith_project_name
 ```
 ### 5. Prepare Embeddings
+First download the dataset in the current project directory from the kaggle link provided above
 Run the `prepare_embeddings.py` script to prepare embeddings and it will store embeddings in the same directory.To run this, Go in the current project directory in the terminal and then run below command:
 ```
 python "./prepare_embeddings.py"
@@ -197,9 +198,10 @@ http://localhost:8000
 │   ├── index.html
 │   ├── style.css
 │   └── script.js
-├── embeddings/            # ChromaDB persistence directory
+├── embeddings/            # ChromaDB persistence directory which will be created after running prepare_embeddings.py
 ├── .env                   # Environment variables
 ├── prepare_embeddings.py
+├── EmbeddingsV-0.2.csv    # dataset
 └── requirements.txt       # Python dependencies
 ```
 ------
