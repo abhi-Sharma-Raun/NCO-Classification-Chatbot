@@ -3,7 +3,12 @@ import chromadb
 from chromadb.utils import embedding_functions
 from tqdm import tqdm
 
+'''
+The dataset has 6 columns- code, title, family_name, division_name, description, final_title.
+final_title is the column derived from columns - division_name, title and description.This column is used for embeddings.Other columns are used for metadata.
+'''
 df9=pd.read_csv(r".\EmbeddingsV-0.2.csv")  # Download the dataset and add it in the current project folder
+
 def get_metadata(df_row):
     '''Make the metadata for the embeddings having code, family_name, division_name, title'''
     
