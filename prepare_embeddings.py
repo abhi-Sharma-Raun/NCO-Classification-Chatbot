@@ -3,7 +3,7 @@ import chromadb
 from chromadb.utils import embedding_functions
 from tqdm import tqdm
 
-df9=pd.read_csv(r".\EmbeddingsV-0.2.csv")  # CDownload the dataset and add it in the current project folder
+df9=pd.read_csv(r".\EmbeddingsV-0.2.csv")  # Download the dataset and add it in the current project folder
 def get_metadata(df_row):
     '''Make the metadata for the embeddings having code, family_name, division_name, title'''
     
