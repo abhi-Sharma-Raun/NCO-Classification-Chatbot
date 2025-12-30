@@ -1,3 +1,6 @@
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Union, Literal
+
 EXPANDER_OUTPUT_JSON_SCHEMA = {
     "name": "expander_output", # The function name the LLM sees
     "description": "Output the structured analysis of the user's job description.",
@@ -54,11 +57,11 @@ ANALYZER_OUTPUT_JSON_SCHEMA = {
             },
             "selected_code": {
                 "type": "string",
-                "description": "The selected NCO code (e.g., '1234.5600'). Empty string if no match."
+                "description": "The selected NCO code (e.g., '1234.5600').List of codes, in case of Multi-Occupation match. Empty string if no match."
             },
             "selected_title": {
                 "type": "string",
-                "description": "The official title corresponding to the selected code. Empty string if no match."
+                "description": "The official title corresponding to the selected code. List of selected titles in case of Multi-Occupation Match. Empty string if no match."
             },
             "confidence_score": {
                 "type": "integer",
@@ -66,7 +69,7 @@ ANALYZER_OUTPUT_JSON_SCHEMA = {
             },
             "system_directive": {
                 "type": "string",
-                "description": "CRITICAL DYNAMIC FIELD. If status is 'IMPROVED_SEARCH', this MUST contain the new Search Query. If status is 'MATCH_FOUND' or 'MORE_INFO', this contains a short technical reasoning summary for the developer logs."
+                "description": "CRITICAL DYNAMIC FIELD. If status is 'IMPROVED_SEARCH', this MUST contain the new Search Query. If status is 'MATCH_FOUND' or 'MORE_INFO', this contains a short technical reasoning summary."
             },
             "user_message": {
                 "type": "string",
@@ -77,3 +80,42 @@ ANALYZER_OUTPUT_JSON_SCHEMA = {
     }
 }
 
+class ExpanderOutput(BaseModel):
+    ''' This is the validator for expander llm output'''
+    reasoning: str
+    division_reason: str
+    title_reason: str = Field(default="")
+    is_query_generated: bool
+    query: str = Field(default="")
+    note_for_analyzer: str = Field(default="")
+    clarification_question: str = Field(default="")
+
+class AnalyzerOutput(BaseModel):
+    '''It normalizes and then validates Analyzer llm output'''
+    thought_process: str
+    status: Literal["MATCH_FOUND", "MORE_INFO", "IMPROVED_SEARCH"]
+    selected_code: Union[str, List[str]] = Field(default="")
+    selected_title: Union[str, List[str]] = Field(default="")
+    confidence_score: int = Field(ge=0, le=10)
+    system_directive: str
+    user_message: str = Field(default="")
+
+    # ---- NORMALIZATION LAYER ----
+    @field_validator("selected_code", "selected_title", mode="before")
+    @classmethod
+    def normalize_str_or_list(cls, v):
+        """
+        Normalizes:
+        - ""            -> []
+        - "1234"        -> ["1234"]
+        - ["1234"]      -> ["1234"]
+        """
+        if v is None or v == "":
+            return []
+        if isinstance(v, str):
+            return [v]
+        if isinstance(v, list):
+            if not all(isinstance(i, str) for i in v):
+                raise ValueError("List must contain only strings")
+            return v
+        raise TypeError("Must be string or list of strings")

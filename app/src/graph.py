@@ -1,15 +1,15 @@
-import json
 from langgraph.graph import StateGraph
-from langgraph.types import interrupt, Command
+from langgraph.types import interrupt
 from typing import TypedDict, List, Annotated, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph.message import add_messages
 from langgraph.constants import END
 from pydantic import Field
-import uuid
 from .prompts import expander_prompt, analyzer_prompt
 from . import schemas
 from .. import utils
+import uuid
+
 
 llm_expander=utils.llm.with_structured_output(schemas.EXPANDER_OUTPUT_JSON_SCHEMA, method="json_mode")
 llm_analyzer=utils.llm.with_structured_output(schemas.ANALYZER_OUTPUT_JSON_SCHEMA, method="json_mode")
@@ -21,18 +21,19 @@ class State(TypedDict):
     retrieved_results: Annotated[Optional[dict], Field(description="This stores the results retrieved after semantic search on the search_query sent by node1(expander_node)")]
     analyzer_response: Annotated[Optional[dict], Field(description="This stores the result of analysis done by the analyzer node")]
     improved_search: Annotated[bool, Field(description="This is an indicator for retrieval_node used to indicate whether the query has come from analyzer or not")]=False
-    improved_search_count: Annotated[int, Field(description="This tells us if improved_search has been used before or not by Analyzer.")]=0
+    improved_search_count: Annotated[int, Field(description="This tells us if improved_search has been used before or not by Analyzer.")]=1
     
 def expander_node(state: State):
     exp_system_prompt=expander_prompt.expander_system_message
     expander_msgs=[exp_system_prompt]+state['messages']
-    expander_response=llm_expander.invoke(expander_msgs)
-    return{
+    expander_raw_response=llm_expander.invoke(expander_msgs)
+    expander_response=schemas.ExpanderOutput.model_validate(expander_raw_response)
+    return{                       # while return state modifications from this node
         "expander_analysis": expander_response,
-        "analyzer_analysis": None,
         "retrieved_results": None,
-        "improved-search": False,
-        "improved_search_count": 0
+        "analyzer_analysis": None,
+        "improved_search": False,
+        "improved_search_count": 1
     }
     
 def retrieval_node(state: State):
@@ -41,15 +42,15 @@ def retrieval_node(state: State):
     search_query=None
     
     if state['improved_search']:
-        search_query=state['analyzer_response']['system_directive']
-    elif state['expander_analysis']['is_query_generated']:
-        search_query=state['expander_analysis']['query']
-    elif not state['expander_analysis']['query'] and not state['expander_analysis']['is_query_generated']:
-        search_query=None 
+        search_query=state['analyzer_response'].system_directive
+    elif state['expander_analysis'].is_query_generated:
+        search_query=state['expander_analysis'].query
+    elif not state['expander_analysis'].query and not state['expander_analysis'].is_query_generated:
+        search_query=None
     else:
         raise ValueError(f"Inconsistent state: Value for is_query_generated is not algined with Value for search_query.")
         
-    if search_query:
+    if search_query is not None:
         results=utils.collection.query(
             query_texts=[search_query],
             n_results=5
@@ -68,12 +69,12 @@ def analyzer_node(state: State):
     analyzer_chat_prompt=analyzer_prompt.analyzer_chat_prompt
 
     user_input=[utils.message_formatter(x) for x in state['messages'] if isinstance(x,HumanMessage)]
-    expander_reasoning=state['expander_analysis']['reasoning']
-    expander_division_reason=state['expander_analysis']['division_reason']
-    expander_title_reason=state['expander_analysis']['title_reason']
-    expander_query=state['expander_analysis']['query']
-    expander_note_for_analyzer=state['expander_analysis']['note_for_analyzer']
-    expander_clarification_question=state['expander_analysis']['clarification_question']
+    expander_reasoning=state['expander_analysis'].reasoning
+    expander_division_reason=state['expander_analysis'].division_reason
+    expander_title_reason=state['expander_analysis'].title_reason
+    expander_query=state['expander_analysis'].query
+    expander_note_for_analyzer=state['expander_analysis'].note_for_analyzer
+    expander_clarification_question=state['expander_analysis'].clarification_question
     retrieved_results=state['retrieved_results']
 
     analyzer_formatted_messages=analyzer_chat_prompt.format_messages(
@@ -91,18 +92,19 @@ def analyzer_node(state: State):
     improved_search=False
     count=state['improved_search_count']
     
-    analyzer_result=llm_analyzer.invoke(analyzer_formatted_messages)
-    if analyzer_result['status']=="IMPROVED_SEARCH":
+    analyzer_raw_result=llm_analyzer.invoke(analyzer_formatted_messages)
+    analyzer_result=schemas.AnalyzerOutput.model_validate(analyzer_raw_result)
+    if analyzer_result.status=="IMPROVED_SEARCH":
         improved_search=True
-        count=count+1
+        count=count-1       
         return {
         "analyzer_response": analyzer_result,
         "improved_search": improved_search,
-        "improved_search_count": count
+        "improved_search_count": count            # It is decreased if improved_search 
         }
        
     return {
-        "messages": [AIMessage(content=analyzer_result['user_message'])],
+        "messages": [AIMessage(content=analyzer_result.user_message)],
         "analyzer_response": analyzer_result,
         "improved_search": improved_search,
         "improved_search_count": count
@@ -110,22 +112,22 @@ def analyzer_node(state: State):
 
 
 def improved_search_router(state: State):
-    if state['improved_search'] and state['improved_search_count']==1:
+    if state['improved_search'] and state['improved_search_count']==0:
         return "retrieval_node"
     else:
         return "user_info_node"
     
 
 def user_info_node(state: State) :
-    current_status=state['analyzer_response']['status']
+    current_status=state['analyzer_response'].status
     assert current_status!="IMPROVED_SEARCH", (
         "Improved_search must have resolved earlier."
     )
     if current_status=="MORE_INFO":
         print("inside interrupt")
-        clarification_response=interrupt(state['analyzer_response']['user_message'])
+        clarification_response=interrupt(state['analyzer_response'].user_message)
         print("going smooth")
-        return {
+        return {                          # In the return from this node only messages remain everything else needs to be cleared/reset
             "messages": [HumanMessage(content=clarification_response)],
             "expander_analysis": None,
             "retrieved_results": None,
@@ -137,10 +139,10 @@ def user_info_node(state: State) :
         return {}   
     
 def user_info_router(state: State):
-       
-    if state['analyzer_response']['status']=="MATCH_FOUND":
+
+    if state['analyzer_response'].status == "MATCH_FOUND":
         return END
-    else:   # when status == MORE_INFO,   IMPROVED_SEARCH  not reach here
+    else:   # when status == MORE_INFO.   IMPROVED_SEARCH will not reach here
         return "expander_node"
     
 
@@ -156,12 +158,12 @@ builder.add_conditional_edges("user_info_node", user_info_router, {"expander_nod
 
 builder.set_entry_point("expander_node")
 
-#config={"configurable": {"thread_id": uuid.uuid4()}}
+config={"configurable": {"thread_id": uuid.uuid4()}}
 
 graph = builder.compile(checkpointer=utils.checkpointer)
 
 
-
+# Just for testing.Ignore
 '''
 user_input=input("Enter the job description: ")
 initial_input_state={
@@ -184,7 +186,7 @@ while True:
     else:
         pass
         
-print("Rand")
+print("Ok till now")
 print("/n")
 print(result)
 
