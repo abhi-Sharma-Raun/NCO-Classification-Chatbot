@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.postgres import PostgresSaver
 from pathlib import Path
 from .config import settings
+import uuid
+from typing import Optional
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +22,14 @@ llm=ChatGroq(
 client = chromadb.PersistentClient(CHROMA_DIR)
 
 collection=client.get_collection("EmbeddingsV-0.2_all-MiniLM-L6-v2")
+
+
+def parse_uuid(value: str) -> Optional[uuid.UUID]:
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError):
+        return None
+
 
 
 def message_formatter(message: BaseMessage):
