@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Literal
 
+
 class Session(BaseModel):
     
     '''Response validation schema when a new session is created'''
@@ -18,7 +19,7 @@ class CreateNewChatResponse(BaseModel):
     thread_id: str
     
     
-class Chat_input_schema(Session):
+class Chat_input_schema(CreateNewChatResponse):
     
     '''Input validation schema to validate the user's chat message input'''
     

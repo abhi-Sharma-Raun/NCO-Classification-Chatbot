@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from ..src import graph
-from .. import models, schemas, utils
+from .. import models, schemas, utils, auth
 from ..database import get_db
 
 router=APIRouter(
@@ -13,9 +13,9 @@ router=APIRouter(
 
 
 @router.put("/start", status_code=status.HTTP_200_OK, response_model=schemas.ChatResponse)
-def start_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(get_db)):
+def start_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(get_db), session_id: str = Depends(auth.get_session_id)):
     
-    session_id=input_details.session_id
+    session_id=session_id
     thread_id=input_details.thread_id
     user_msg=input_details.user_message
     

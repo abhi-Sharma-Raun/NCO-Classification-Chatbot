@@ -27,7 +27,7 @@ collection=client.get_collection("EmbeddingsV-0.2_all-MiniLM-L6-v2")
 def parse_uuid(value: str) -> Optional[uuid.UUID]:
     try:
         return uuid.UUID(value)
-    except (ValueError, TypeError):
+    except:
         return None
 
 

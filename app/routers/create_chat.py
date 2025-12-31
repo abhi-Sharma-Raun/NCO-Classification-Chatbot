@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from .. import models, schemas, utils
+from .. import models, schemas, utils, auth
 from ..database import get_db
 
 
@@ -13,7 +13,7 @@ router = APIRouter(
 
 
 @router.post("/create-new-chat", status_code=status.HTTP_201_CREATED, response_model=schemas.CreateNewChatResponse)
-def new_chat(session_id: str, db: Session = Depends(get_db)):
+def new_chat(session_id: str = Depends(auth.get_session_id), db: Session = Depends(get_db)):
     
     uuid_session_id = utils.parse_uuid(session_id)
     if uuid_session_id is None:
