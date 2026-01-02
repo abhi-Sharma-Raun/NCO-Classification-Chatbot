@@ -63,11 +63,12 @@ def generate_initial_state(msg: str):
     return initial_state_dict
     
 # DB_URI=f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.checkpointer_database_name}?sslmode=disable"
-CHECKPOINT_URI = 'postgresql://neondb_owner:npg_6AaO7sZbVTvi@ep-weathered-bonus-a4csd9vd-pooler.us-east-1.aws.neon.tech/nco-classification-chatbot?sslmode=require&channel_binding=require'
+CHECKPOINT_URI = f'postgresql://neondb_owner:{settings.database_password}@ep-rough-darkness-adak90jk-pooler.c-2.{settings.database_region}.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+
+# the lines below set up the checkpointer in database 
+with PostgresSaver.from_conn_string(CHECKPOINT_URI) as saver:
+    saver.setup()
+
 _checkpointer_cm = PostgresSaver.from_conn_string(CHECKPOINT_URI)
 checkpointer = _checkpointer_cm.__enter__()
 
-# Run these code lines below when you run the file for the first time to set up the checkpointer in database 
-
-with PostgresSaver.from_conn_string(CHECKPOINT_URI) as saver:
-    saver.setup()
