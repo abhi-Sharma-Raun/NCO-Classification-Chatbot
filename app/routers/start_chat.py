@@ -43,9 +43,9 @@ def start_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(get
     config={"configurable": {"thread_id": thread_id}}
     
     try:
-        checkpoints = list(utils.checkpointer.list(config))
-        if len(checkpoints) > 0:                  # If the thread already exists in checkpoints means it has been used before so that thread can't be used for invoke in graph
-            print("Thread exists.Can't be used for invoke")
+        checkpoints = utils.checkpointer.get_tuple(config)
+        if checkpoints is not None:                  # If the thread already exists in checkpoints means it has been used before so that thread can't be used for start invoke in graph
+            print("Thread already exists.Can't be used at the start of the chat")
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Create a new chat and try again.")
 
         result=graph.graph.invoke(utils.generate_initial_state(user_msg), config=config)
@@ -70,8 +70,8 @@ def start_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(get
         update_session.thread_closed_at=datetime.now(ZoneInfo("UTC"))
         try:
             db.commit()
-            checkpoints = list(utils.checkpointer.list(config))
-            if len(checkpoints) > 0:    # If the thread exists then only delete it
+            checkpoints = utils.checkpointer.get_tuple(config)
+            if checkpoints is not None:    # If the thread exists then only delete it
                 print("Thread exists.")
                 utils.checkpointer.delete_thread(thread_id) 
         except:

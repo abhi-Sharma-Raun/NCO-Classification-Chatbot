@@ -34,8 +34,8 @@ def new_chat(session_id: str = Depends(auth.get_session_id), db: Session = Depen
     
     try:   
         db.commit()
-        checkpoints = list(utils.checkpointer.list({"configurable": {"thread_id": old_thread_id}}))
-        if len(checkpoints)>0 and was_active:          # If the old thread exists in checkpoints and was active then that old thread should be deleted
+        checkpoints = utils.checkpointer.get_tuple({"configurable": {"thread_id": old_thread_id}})
+        if checkpoints is not None and was_active:          # If the old thread exists in checkpoints and was active then that old thread should be deleted
             print("Thread exists.")                    #If the thread exists and the session is not active then that thread will be automatically deleted from checkpoints by triggers
             utils.checkpointer.delete_thread(old_thread_id)
     except:
