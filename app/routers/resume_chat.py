@@ -49,7 +49,7 @@ def resume_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(ge
             print("Thread does not exist.Can't be used for resume")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This thread can't be used to resume the chat.Create a new chat then try again")
     
-        result=graph.graph.invoke(Command(resume=user_message), config=config)
+        result=graph.graph.invoke(Command(resume=user_message), config=config, durability="exit")
     except HTTPException:
         raise
     except Exception as e:

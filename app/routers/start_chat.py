@@ -48,7 +48,7 @@ def start_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(get
             print("Thread already exists.Can't be used at the start of the chat")
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Create a new chat and try again.")
 
-        result=graph.graph.invoke(utils.generate_initial_state(user_msg), config=config)
+        result=graph.graph.invoke(utils.generate_initial_state(user_msg), config=config, durability="exit")
     except HTTPException:
         raise
     except Exception as e:
@@ -74,8 +74,8 @@ def start_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(get
             if checkpoints is not None:    # If the thread exists then only delete it
                 print("Thread exists.")
                 utils.checkpointer.delete_thread(thread_id) 
-        except:
+        except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="backend database problem with checkpointer or database commit")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"backend database problem with checkpointer or database commit.Error: {e}")
         
     return {"result": final_result, "status": curr_status}
