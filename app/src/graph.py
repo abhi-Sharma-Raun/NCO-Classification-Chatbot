@@ -124,9 +124,9 @@ def user_info_node(state: State) :
         "Improved_search must have resolved earlier."
     )
     if current_status=="MORE_INFO":
-        print("inside interrupt")
+#        print("inside interrupt")
         clarification_response=interrupt(state['analyzer_response'].user_message)
-        print("going smooth")
+#        print("going smooth")
         return {                          # In the return from this node only messages remain everything else needs to be cleared/reset
             "messages": [HumanMessage(content=clarification_response)],
             "expander_analysis": None,
@@ -163,7 +163,7 @@ config={"configurable": {"thread_id": uuid.uuid4()}}
 graph = builder.compile(checkpointer=utils.checkpointer)
 
 
-# Just for testing.Ignore
+# Just for testing.You can use it to understand the behaviour if interrupt otherwise ignore
 '''
 user_input=input("Enter the job description: ")
 initial_input_state={

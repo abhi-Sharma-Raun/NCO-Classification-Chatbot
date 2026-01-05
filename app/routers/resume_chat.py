@@ -46,7 +46,7 @@ def resume_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(ge
     try:
         checkpoints = utils.checkpointer.get_tuple(config)
         if checkpoints is None:                  # If the thread doesn't exist in checkpoints means it hasn't been used before so that thread can't be used for resume in graph
-            print("Thread does not exist.Can't be used for resume")
+#            print("Thread does not exist.Can't be used for resume")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This thread can't be used to resume the chat.Create a new chat then try again")
     
         result=graph.graph.invoke(Command(resume=user_message), config=config, durability="exit")
@@ -73,7 +73,6 @@ def resume_chat(input_details: schemas.Chat_input_schema, db: Session=Depends(ge
             db.commit()
             checkpoints = utils.checkpointer.get_tuple(config)
             if checkpoints is not None:    # If the thread exists then only delete it
-                print("Thread exists.")
                 utils.checkpointer.delete_thread(thread_id) 
         except:
             db.rollback()
