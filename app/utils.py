@@ -1,12 +1,12 @@
 from langchain_groq import ChatGroq
 import chromadb
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
-from dotenv import load_dotenv
 from langgraph.checkpoint.postgres import PostgresSaver
 from pathlib import Path
 from .config import settings
 import uuid
 from typing import Optional
+from .database import checkpointer_pool
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -61,14 +61,6 @@ def generate_initial_state(msg: str):
         "improved_search_count": 0   
     }
     return initial_state_dict
-    
-# DB_URI=f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.checkpointer_database_name}?sslmode=disable"
-CHECKPOINT_URI = f'postgresql://neondb_owner:{settings.database_password}@ep-rough-darkness-adak90jk-pooler.c-2.{settings.database_region}.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+  
 
-# the lines below set up the checkpointer in database 
-with PostgresSaver.from_conn_string(CHECKPOINT_URI) as saver:
-    saver.setup()
-
-_checkpointer_cm = PostgresSaver.from_conn_string(CHECKPOINT_URI)
-checkpointer = _checkpointer_cm.__enter__()
-
+checkpointer = PostgresSaver(checkpointer_pool)
