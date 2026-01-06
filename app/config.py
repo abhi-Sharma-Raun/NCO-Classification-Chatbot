@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     langsmith_project: str
     allowed_url1: str
     allowed_url2: str
+    allowed_url3: str
     
     class Config:
         env_file = ".env"

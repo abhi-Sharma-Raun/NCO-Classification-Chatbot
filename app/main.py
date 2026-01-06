@@ -18,7 +18,7 @@ app.include_router(resume_chat.router)
              
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = [f"{settings.allowed_url1}", f"{settings.allowed_url2}"],
+    allow_origins = [f"{settings.allowed_url1}", f"{settings.allowed_url2}", f"{settings.allowed_url3}"],
     allow_credentials = True,
     allow_methods = ["*"],
     allow_headers = ["*"]
