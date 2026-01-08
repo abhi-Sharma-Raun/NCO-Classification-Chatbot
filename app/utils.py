@@ -3,14 +3,12 @@ import chromadb
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langgraph.checkpoint.postgres import PostgresSaver
 from pathlib import Path
-from .config import settings
+from .config import settings, EMBEDDINGS_PATH
 import uuid
 from typing import Optional
 from .database import checkpointer_pool
+from chromadb.utils import embedding_functions
 
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-CHROMA_DIR = BASE_DIR / "embeddings"
 
 llm=ChatGroq(
     model="llama-3.1-8b-instant",
@@ -19,9 +17,9 @@ llm=ChatGroq(
     api_key=f"{settings.groq_api_key}"
 )
 
-client = chromadb.PersistentClient(CHROMA_DIR)
-
-collection=client.get_collection("EmbeddingsV-0.2_all-MiniLM-L6-v2")
+client = chromadb.PersistentClient(EMBEDDINGS_PATH)
+default_ef=embedding_functions.DefaultEmbeddingFunction()
+collection=client.get_collection("EmbeddingsV-0.2_all-MiniLM-L6-v2", embedding_function=default_ef)
 
 
 def parse_uuid(value: str) -> Optional[uuid.UUID]:

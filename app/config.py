@@ -1,4 +1,7 @@
 from pydantic_settings import BaseSettings
+import os
+from pathlib import Path
+from typing import Optional
 
 class Settings(BaseSettings):
     checkpointer_db_password: str
@@ -22,3 +25,9 @@ class Settings(BaseSettings):
         env_file = ".env"
     
 settings=Settings()
+
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+EMBEDDINGS_PATH = Path(BASE_DIR / "embeddings") 
+
+
