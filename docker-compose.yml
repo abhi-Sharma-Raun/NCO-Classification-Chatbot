@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   api:
-    image: nco-classification-chatbot:2.0
+    image: nco-classification-chatbot:latest
     build: .
     ports:
       - "8000:8000"

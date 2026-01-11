@@ -25,7 +25,7 @@ class State(TypedDict):
     
 def expander_node(state: State):
     exp_system_prompt=expander_prompt.expander_system_message
-    expander_msgs=[exp_system_prompt]+state['messages']
+    expander_msgs=[exp_system_prompt]+[HumanMessage(content = utils.make_final_message(state['messages']))]
     expander_raw_response=llm_expander.invoke(expander_msgs)
     expander_response=schemas.ExpanderOutput.model_validate(expander_raw_response)
     return{                       # while return state modifications from this node
@@ -63,12 +63,12 @@ def retrieval_node(state: State):
         "retrieved_results": results,
         "improved_search": False
     }
-    
+
 
 def analyzer_node(state: State):
     analyzer_chat_prompt=analyzer_prompt.analyzer_chat_prompt
 
-    user_input=[utils.message_formatter(x) for x in state['messages'] if isinstance(x,HumanMessage)]
+    user_input=utils.make_final_message(state['messages'])
     expander_reasoning=state['expander_analysis'].reasoning
     expander_division_reason=state['expander_analysis'].division_reason
     expander_title_reason=state['expander_analysis'].title_reason
@@ -124,9 +124,7 @@ def user_info_node(state: State) :
         "Improved_search must have resolved earlier."
     )
     if current_status=="MORE_INFO":
-#        print("inside interrupt")
         clarification_response=interrupt(state['analyzer_response'].user_message)
-#        print("going smooth")
         return {                          # In the return from this node only messages remain everything else needs to be cleared/reset
             "messages": [HumanMessage(content=clarification_response)],
             "expander_analysis": None,
@@ -163,7 +161,7 @@ config={"configurable": {"thread_id": uuid.uuid4()}}
 graph = builder.compile(checkpointer=utils.checkpointer)
 
 
-# Just for testing.You can use it to understand the behaviour if interrupt otherwise ignore
+# Just for testing.You can use it to understand the behaviour of interrupt otherwise ignore
 '''
 user_input=input("Enter the job description: ")
 initial_input_state={

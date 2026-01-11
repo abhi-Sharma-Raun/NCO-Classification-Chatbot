@@ -1,269 +1,265 @@
 const API_BASE = "http://localhost:8000";
 
-// Internal State
-let currentState = {
+/* ---------------- STATE ---------------- */
+let state = {
     sessionId: null,
     threadId: null,
-    mode: "initializing", // 'initializing', 'start', 'resume', 'closed'
+    mode: "init", // init | start | resume | closed
     isProcessing: false,
-    messages: [] // We now store messages to restore them on refresh
+    messages: []
 };
 
-// DOM Elements
-const messagesDiv = document.getElementById('messages');
-const inputField = document.getElementById('user-input');
-const sendBtn = document.getElementById('send-btn');
-const newChatBtn = document.getElementById('new-chat-btn');
-const loadingIndicator = document.getElementById('loading-indicator');
+const STORAGE_KEY = "nco_chat_state";
 
-// --- Initialization ---
+/* ---------------- DOM ---------------- */
+const messagesDiv = document.getElementById("messages");
+const input = document.getElementById("user-input");
+const sendBtn = document.getElementById("send-btn");
+const newChatBtn = document.getElementById("new-chat-btn");
+const loader = document.getElementById("loading-indicator");
+const coldLoader = document.getElementById("coldstart-indicator");
+const form = document.getElementById("chat-form");
 
-window.addEventListener('DOMContentLoaded', async () => {
-    loadStateFromStorage();
+/* ---------------- STORAGE ---------------- */
+function saveState() {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function loadState() {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
     
-    if (currentState.sessionId) {
-        // Restore existing session
-        restoreUI();
-    } else {
-        // Create new session
-        await initSession();
-    }
-});
+    state.sessionId = parsed.sessionId;
+    state.threadId = parsed.threadId;
+    state.mode = parsed.mode;
+    state.messages = parsed.messages || [];
 
-function saveStateToStorage() {
-    sessionStorage.setItem('nco_chat_state', JSON.stringify({
-        sessionId: currentState.sessionId,
-        threadId: currentState.threadId,
-        mode: currentState.mode,
-        messages: currentState.messages
-    }));
+    state.isProcessing = false;
 }
 
-function loadStateFromStorage() {
-    const saved = sessionStorage.getItem('nco_chat_state');
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        currentState.sessionId = parsed.sessionId;
-        currentState.threadId = parsed.threadId;
-        currentState.mode = parsed.mode;
-        currentState.messages = parsed.messages || [];
+/* ---------------- API ---------------- */
+async function apiCall(path, options = {}) {
+    let response;
+
+    try {
+        response = await fetch(`${API_BASE}${path}`, {
+            headers: {
+                "Content-Type": "application/json",
+                "Session-Id": state.sessionId || ""
+            },
+            ...options
+        });
+    } catch {
+        throw { detail: "NETWORK_ERROR", error_message: "Network error" };
+    }
+
+    if (!response.ok) {
+        let body = {};
+        try {
+            body = await response.json();
+        } catch {}
+
+        throw {
+            detail: body.detail,
+            error_message: body.error_message || "Request failed"
+        };
+    }
+
+    return response.json();
+}
+
+/* ---------------- ERROR HANDLER ---------------- */
+function handleError(err) {
+
+    console.error(err);    
+    state.isProcessing = false;
+    loader.classList.add("hidden");
+    saveState();
+
+    const category = err.detail.detail;
+    const message = err.detail.error_message || "Unexpected error";
+
+    switch (category) {
+        case "INVALID_SESSION_ID":
+        case "MISSING_HEADER":
+            systemMessage("Session expired. Close this tab and start in a new tab.")
+            break;
+
+        case "INVALID_THREAD_ID":
+        case "THREAD_ID_NOT_FOUND":
+        case "THREAD_ID_ALREADY_EXISTS":
+            systemMessage(message);
+            enableInput(false);
+            newChatBtn.classList.remove("hidden");
+            break;
+
+        case "CLOSED_THREAD":
+            state.mode = "closed";
+            enableInput(false);
+            newChatBtn.classList.remove("hidden");
+            systemMessage(message || "This chat is closed.");
+            saveState();
+            break;
+
+        case "DATABASE_ERROR":
+            systemMessage(message);
+            break;
+
+        default:
+            // network / unknown
+            coldLoader.classList.remove("hidden");
+            systemMessage(message);
     }
 }
 
-function restoreUI() {
-    clearMessages();
-    
-    // Re-render history
-    if (currentState.messages.length > 0) {
-        currentState.messages.forEach(msg => addMessageToDOM(msg.role, msg.content));
-    } else {
-         addMessageToDOM('system', 'Session restored.');
-    }
-
-    // Set UI state based on mode
-    if (currentState.mode === 'closed') {
-        enableInput(false);
-        toggleNewChatButton(true);
-    } else {
-        enableInput(true);
-        toggleNewChatButton(false);
-    }
-}
-
-
+/* ---------------- SESSION ---------------- */
 async function initSession() {
     try {
-        const response = await fetch(`${API_BASE}/create-new-session`, {
-            method: 'POST'
+        coldLoader.classList.remove("hidden");
+
+        const data = await apiCall("/create-new-session", {
+            method: "POST"
         });
-        
-        if (!response.ok) throw new Error("Failed to create session");
-        
-        const data = await response.json();
-        
-        // Update State
-        currentState.sessionId = data.session_id;
-        currentState.threadId = data.thread_id;
-        currentState.mode = 'start';
-        currentState.messages = []; // Clear history for new session
-        
-        saveStateToStorage();
-        
-        // Update UI
+
+        state.sessionId = data.session_id;
+        state.threadId = data.thread_id;
+        state.mode = "start";
+        state.messages = [];
+
+        saveState();
         clearMessages();
-        addMessage('system', 'Session created. Please describe the job role.');
+        systemMessage("Session created. Describe the job role.");
         enableInput(true);
-        
-    } catch (error) {
-        addMessage('system', `Error: ${error.message}. Please refresh.`);
+    } catch (e) {
+        handleError(e);
+    }
+    finally {
+        coldLoader.classList.add("hidden");
     }
 }
 
-async function handleFormSubmit(e) {
-    e.preventDefault();
-    
-    const text = inputField.value.trim();
-    if (!text || currentState.isProcessing) return;
-    
-    // Update State & UI
-    addMessage('user', text);
-    inputField.value = '';
-    setInputProcessing(true);
+/* ---------------- CHAT ---------------- */
+async function sendMessage(text) {
+
+    if (state.mode === "closed") {
+        systemMessage("This chat is closed. Please start a new chat.");
+        newChatBtn.classList.remove("hidden");
+        return;
+    }
+
+    addMessage("user", text);
+    setProcessing(true);
 
     try {
-        let endpoint = "";
-        
-        if (currentState.mode === 'start') {
-            endpoint = '/start';
-        } else if (currentState.mode === 'resume') {
-            endpoint = '/resume';
+        const endpoint = state.mode === "resume" ? "/resume" : "/start";
+
+        const data = await apiCall(endpoint, {
+            method: "PUT",
+            body: JSON.stringify({
+                thread_id: state.threadId,
+                user_message: text
+            })
+        });
+
+        addMessage("bot", data.result);
+
+        if (data.status === "MORE_INFO") {
+            state.mode = "resume";
+            newChatBtn.classList.remove("hidden");
         } else {
-            throw new Error("Chat is closed");
-        }
-
-        const payload = {
-            thread_id: currentState.threadId,
-            user_message: text
-        };
-
-        const response = await fetch(`${API_BASE}${endpoint}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Session-Id': currentState.sessionId },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.detail || "API Error");
-        }
-
-        const data = await response.json();
-        
-        // Handle Response
-        addMessage('bot', data.result);
-        
-        // Update Mode based on Status
-        if (data.status === 'MORE_INFO') {
-            currentState.mode = 'resume';
-            toggleNewChatButton(true); 
-        } else if (data.status === 'MATCH_FOUND') {
-            currentState.mode = 'closed';
-            toggleNewChatButton(true);
+            console.log("chat status:", data.status);
+            state.mode = "closed";
             enableInput(false);
+            newChatBtn.classList.remove("hidden");
         }
-        
-        saveStateToStorage();
 
-    } catch (error) {
-        addMessage('system', `Error: ${error.message}`);
+        saveState();
+    } catch (e) {
+        handleError(e);
     } finally {
-        if (currentState.mode !== 'closed') {
-            setInputProcessing(false);
-        }
+        setProcessing(false);
     }
 }
 
-async function startNewChat() {
-    if (!currentState.sessionId) return;
-    
-    setInputProcessing(true);
-    
-    try {
-        const response = await fetch(`${API_BASE}/create-new-chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Session-Id': currentState.sessionId }
-        });
 
-        if (!response.ok) throw new Error("Failed to start new chat");
-
-        const data = await response.json();
-        
-        // Update State
-        currentState.threadId = data.thread_id;
-        currentState.mode = 'start';
-        currentState.messages = []; // Clear history
-        
-        saveStateToStorage();
-        
-        // Reset UI
-        clearMessages();
-        addMessage('system', 'New chat started.');
-        enableInput(true);
-        toggleNewChatButton(false);
-        inputField.focus();
-        
-    } catch (error) {
-        addMessage('system', `Error starting new chat: ${error.message}`);
-    } finally {
-        setInputProcessing(false);
-    }
-}
-
-// --- UI Helpers ---
-
-// Split into two: addMessage (logic) and addMessageToDOM (visual)
-function addMessage(role, text) {
-    // 1. Add to state history
-    currentState.messages.push({ role, content: text });
-    saveStateToStorage(); // Sync immediately
-    
-    // 2. Add to Visuals
-    addMessageToDOM(role, text);
-}
-
-function addMessageToDOM(role, text) {
-    const msgDiv = document.createElement('div');
-    msgDiv.classList.add('message');
-    
-    if (role === 'user') {
-        msgDiv.classList.add('user-message');
-        msgDiv.textContent = text;
-    } else if (role === 'bot') {
-        msgDiv.classList.add('bot-message');
-        // Simple markdown replacement
-        const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        msgDiv.innerHTML = formattedText; 
-    } else {
-        msgDiv.classList.add('system-message');
-        msgDiv.textContent = text;
-    }
-    
-    messagesDiv.appendChild(msgDiv);
-    scrollToBottom();
-}
-
-function clearMessages() {
-    messagesDiv.innerHTML = '';
-}
-
-function scrollToBottom() {
+/* ---------------- UI ---------------- */
+function renderMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = `message ${role}-message`;
+    div.textContent = text;
+    messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-function setInputProcessing(processing) {
-    currentState.isProcessing = processing;
-    if (processing) {
-        loadingIndicator.classList.remove('hidden');
-        sendBtn.disabled = true;
-        inputField.disabled = true;
-    } else {
-        loadingIndicator.classList.add('hidden');
-        sendBtn.disabled = false;
-        inputField.disabled = false;
-        inputField.focus();
-    }
+function addMessage(role, text) {
+    state.messages.push({ role, content: text });
+    saveState();
+
+    renderMessage(role, text);
 }
 
-function enableInput(enabled) {
-    inputField.disabled = !enabled;
-    sendBtn.disabled = !enabled;
-    if (enabled) inputField.focus();
+function systemMessage(text) {
+    addMessage("system", text);
 }
 
-function toggleNewChatButton(show) {
-    if (show) {
-        newChatBtn.classList.remove('hidden');
-    } else {
-        newChatBtn.classList.add('hidden');
-    }
+function clearMessages() {
+    messagesDiv.innerHTML = "";
 }
+
+function enableInput(on) {
+    input.disabled = !on;
+    sendBtn.disabled = !on;
+}
+
+function setProcessing(on) {
+    state.isProcessing = on;
+    loader.classList.toggle("hidden", !on);
+    enableInput(!on);
+}
+
+/* ---------------- EVENTS ---------------- */
+form.addEventListener("submit", e => {
+    e.preventDefault();
+    if (!input.value || state.isProcessing) return;
+    sendMessage(input.value.trim());
+    input.value = "";
+});
+
+newChatBtn.addEventListener("click", async () => {
+    try {
+        setProcessing(false);
+
+        const data = await apiCall("/create-new-chat", {
+            method: "POST"
+        });
+        state.threadId = data.thread_id;
+        state.mode = "start";
+        state.messages = [];
+        saveState();
+        clearMessages();
+        systemMessage("New chat started.");
+        enableInput(true);
+        newChatBtn.classList.add("hidden");
+    } catch (e) {
+        handleError(e);
+    }
+});
+
+
+window.addEventListener("DOMContentLoaded", () => {
+    loadState();
+    clearMessages();
+    if (state.sessionId) {
+        state.messages.forEach(m => renderMessage(m.role, m.content));
+        enableInput(state.mode !== "closed");
+        if (state.mode !== "start" ) {
+            newChatBtn.classList.remove("hidden");
+        }
+        if (state.mode === "start" && state.messages.length > 1) {
+            newChatBtn.classList.remove("hidden");
+        }
+    } else {
+        initSession();
+    }
+});

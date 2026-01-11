@@ -42,7 +42,7 @@ analyzer_system_message = SystemMessage(content="""
     ### Fragmented Occupations
     - Security/Watchmen/Guards
     - Farmers/Agricultural Workers
-    - Construction Workers
+    - Construction Workers/labourers
     - Electricians
     - Plumbers and Pipe Traders
     - Drivers

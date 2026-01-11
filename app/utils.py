@@ -5,7 +5,7 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from pathlib import Path
 from .config import settings, EMBEDDINGS_PATH
 import uuid
-from typing import Optional
+from typing import List, Optional
 from .database import checkpointer_pool
 from chromadb.utils import embedding_functions
 
@@ -30,16 +30,11 @@ def parse_uuid(value: str) -> Optional[uuid.UUID]:
 
 
 
-def message_formatter(message: BaseMessage):
-    formatted_msg=None
-    if isinstance(message, AIMessage):
-        formatted_msg={"role":"assistant", "content": message.content}
-    elif isinstance(message, HumanMessage):
-        formatted_msg={"role":"user", "content": message.content}
-    else:
-        raise ValueError("Message is neither an object of AIMessage nor HumanMessage")
-    
-    return formatted_msg
+def make_final_message(messages: List[BaseMessage]) -> str:
+
+    final_message = ' '.join([msg.content for msg in messages if isinstance(msg, HumanMessage)])
+    return final_message
+
 
 def merge_retrieved_results(old: dict, new: dict):
     for key in ["distances", "documents", "metadatas", "ids"]:

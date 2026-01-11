@@ -1,56 +1,74 @@
+html {
+    width: 100%;
+    height: 100%; 
+}
+
 :root {
     --bg-color: #f0f2f6;
     --chat-bg: #ffffff;
-    --primary-color: #ff4b4b; /* Streamlit red-ish color */
+    --primary-color: #ff4b4b;
     --user-msg-bg: #f0f2f6;
     --bot-msg-bg: #e6f3ff;
     --text-color: #31333F;
 }
 
+/* ---------- BASE (Laptop / Desktop Standard) ---------- */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bg-color);
     margin: 0;
     display: flex;
     justify-content: center;
+    /* Uses dvh for mobile browsers, falls back to vh */
     height: 100vh;
+    height: 100dvh;
     color: var(--text-color);
+    overflow: hidden; 
 }
 
 .chat-container {
     width: 100%;
-    max-width: 800px;
+    /* 950px is a sweet spot for laptops: wide enough but not empty */
+    max-width: 950px; 
     background-color: var(--chat-bg);
     display: flex;
     flex-direction: column;
     height: 100%;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    /* Subtle shadow for depth */
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+    position: relative;
 }
 
-/* Header */
+/* ---------- HEADER ---------- */
 .chat-header {
-    padding: 20px;
-    border-bottom: 1px solid #ddd;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e5e5e5;
     display: flex;
     justify-content: space-between;
     align-items: center;
     background-color: white;
+    flex-shrink: 0; 
 }
 
 .chat-header h1 {
-    font-size: 1.2rem;
+    /* 1.3rem is standard readable heading size on laptops */
+    font-size: 1.3rem; 
+    font-weight: 600;
     margin: 0;
+    line-height: 1.2;
 }
 
 #new-chat-btn {
     background-color: white;
-    border: 1px solid var(--primary-color);
+    border: 1.5px solid var(--primary-color);
     color: var(--primary-color);
-    padding: 5px 15px;
-    border-radius: 5px;
+    padding: 8px 16px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
-    transition: all 0.2s;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap; 
 }
 
 #new-chat-btn:hover {
@@ -62,64 +80,75 @@ body {
     display: none !important;
 }
 
-/* Messages Area */
+/* ---------- MESSAGES AREA ---------- */
 .messages-area {
     flex: 1;
-    padding: 20px;
+    /* Comfortable padding, not massive */
+    padding: 24px 30px; 
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 16px;
+    -webkit-overflow-scrolling: touch; 
 }
 
 .message {
-    max-width: 80%;
-    padding: 12px 16px;
-    border-radius: 10px;
-    line-height: 1.5;
+    max-width: 80%; /* Keeps lines from getting hard to read */
+    font-size: 1rem; /* Standard 16px text */
+    line-height: 1.6;
+    padding: 12px 18px; 
+    border-radius: 12px;
     word-wrap: break-word;
 }
 
 .user-message {
     align-self: flex-end;
     background-color: var(--user-msg-bg);
-    border-bottom-right-radius: 2px;
+    border-bottom-right-radius: 4px;
 }
 
 .bot-message {
     align-self: flex-start;
     background-color: var(--bot-msg-bg);
-    border-bottom-left-radius: 2px;
+    border-bottom-left-radius: 4px;
 }
 
+/* ---------- SYSTEM MESSAGE ---------- */
 .system-message {
     align-self: center;
     background-color: #fff3cd;
     color: #856404;
     font-size: 0.9rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+    max-width: 90%;
     text-align: center;
 }
 
-/* Input Area */
+/* ---------- INPUT AREA ---------- */
 .input-area {
-    padding: 20px;
-    border-top: 1px solid #ddd;
+    padding: 20px 30px;
+    border-top: 1px solid #e5e5e5;
     background-color: white;
     position: relative;
+    flex-shrink: 0; 
 }
 
 #chat-form {
     display: flex;
-    gap: 10px;
+    gap: 14px; 
+    width: 100%;
 }
 
 #user-input {
     flex: 1;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 1rem;
+    padding: 14px 18px; 
+    border: 1.5px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem; 
     outline: none;
+    min-width: 0; 
+    transition: border-color 0.2s ease;
 }
 
 #user-input:focus {
@@ -130,24 +159,160 @@ body {
     background-color: var(--primary-color);
     color: white;
     border: none;
-    padding: 0 20px;
-    border-radius: 5px;
+    padding: 0 28px;
+    border-radius: 8px;
     cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
     display: flex;
     align-items: center;
     justify-content: center;
+    white-space: nowrap;
 }
 
-#send-btn:disabled, #user-input:disabled {
-    background-color: #eee;
+#send-btn:disabled,
+#user-input:disabled {
+    background-color: #f5f5f5;
     cursor: not-allowed;
     opacity: 0.7;
 }
 
-#loading-indicator {
+/* ---------- LOADERS ---------- */
+/* ---------- LOADERS ---------- */
+#loading-indicator, #coldstart-indicator {
     position: absolute;
-    top: -30px;
-    left: 20px;
-    font-size: 0.85rem;
-    color: #666;
+    /* Center it horizontally on all screens */
+    left: 50%;
+    transform: translateX(-50%);
+    
+    /* Shape and Size */
+    padding: 10px 20px;
+    border-radius: 24px; /* Pill shape */
+    font-size: 0.95rem;  /* Readable size */
+    font-weight: 600;
+    background-color: white;
+    
+    /* Drop shadow to make it pop off the page */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    border: 1px solid rgba(0,0,0,0.05);
+    
+    /* Alignment */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 10;
+    white-space: nowrap;
+    pointer-events: none; /* Let clicks pass through */
+}
+
+#loading-indicator {
+    top: -60px; /* Positioned clearly above input */
+    color: var(--primary-color);
+    /* Pulse animation to catch the eye */
+    animation: slideUpFade 0.3s ease-out, pulseShadow 2s infinite;
+}
+
+/* Add a little colored dot before the text */
+#loading-indicator::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    display: block;
+}
+
+#coldstart-indicator {
+    top: -60px;
+    color: #d97706; /* Amber/Orange color to indicate waiting */
+    border: 1px solid #fcd34d;
+    background-color: #fffbeb;
+    animation: slideUpFade 0.3s ease-out;
+}
+
+/* Add an icon before the cold start text */
+#coldstart-indicator::before {
+    content: "⏳"; 
+    font-size: 1.1rem;
+}
+
+/* Animations */
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes pulseShadow {
+    0% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 75, 75, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
+}
+
+
+/* =========================================
+   RESPONSIVE BREAKPOINTS
+   ========================================= */
+
+/* 1. LARGE MONITORS (Optional scaling for very big screens) */
+@media (min-width: 1600px) {
+    .chat-container {
+        max-width: 1100px;
+    }
+    .message {
+        font-size: 1.05rem;
+    }
+}
+
+/* 2. MOBILE SCREENS (Phones) - Compact fit */
+@media (max-width: 600px) {
+    .chat-container {
+        width: 100%;
+        max-width: 100%;
+        box-shadow: none;
+    }
+
+    .chat-header {
+        padding: 14px 16px;
+    }
+
+    .chat-header h1 {
+        font-size: 1.15rem;
+    }
+
+    #new-chat-btn {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+
+    .messages-area {
+        padding: 16px;
+        gap: 14px;
+    }
+
+    .message {
+        max-width: 88%; 
+        font-size: 0.95rem; /* Slightly smaller for mobile density */
+        padding: 10px 14px;
+    }
+
+    .input-area {
+        padding: 14px 16px;
+    }
+
+    #user-input {
+        font-size: 16px; /* Important: Prevents iOS zoom */
+        padding: 12px;
+    }
+    
+    #send-btn {
+        padding: 0 20px;
+        font-size: 0.95rem;
+    }
+
+    #loading-indicator, #coldstart-indicator {
+        font-size: 0.85rem; /* Slightly smaller on mobile but still catchy */
+        padding: 8px 16px;
+        top: -55px;
+        width: max-content; /* Ensure it wraps tightly around text */
+    }
 }

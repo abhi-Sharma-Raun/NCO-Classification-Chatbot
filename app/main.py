@@ -15,6 +15,9 @@ app.include_router(create_chat.router)
 app.include_router(start_chat.router)
 app.include_router(resume_chat.router)
         
+@app.get("/")
+def read_root():    # This is just the route which is used to wake up the API on platforms like render free teir
+    return {"message": "Welcome to the NCO Classification Chatbot API"}
              
 app.add_middleware(
     CORSMiddleware,

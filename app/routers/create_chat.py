@@ -17,12 +17,13 @@ def new_chat(session_id: str = Depends(auth.get_session_id), db: Session = Depen
     
     uuid_session_id = utils.parse_uuid(session_id)
     if uuid_session_id is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session_id")
-    
-    session = (db.query(models.ChatSession).filter(models.ChatSession.session_id == uuid_session_id).with_for_update().one_or_none())
-
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=schemas.INVALID_SESSION_ID_ERROR.model_dump())
+    try:
+        session = (db.query(models.ChatSession).filter(models.ChatSession.session_id == uuid_session_id).with_for_update().one_or_none())
+    except:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=schemas.USER_DATABASE_ERROR)
     if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Please create new session")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=schemas.INVALID_SESSION_ID_ERROR.model_dump())
 
     old_thread_id=str(session.thread_id)   
     was_active=session.is_active    
@@ -36,11 +37,11 @@ def new_chat(session_id: str = Depends(auth.get_session_id), db: Session = Depen
         db.commit()
         checkpoints = utils.checkpointer.get_tuple({"configurable": {"thread_id": old_thread_id}})
         if checkpoints is not None and was_active:          # If the old thread exists in checkpoints and was active then that old thread should be deleted
-                                   #If the thread exists and the session is not active then that thread will be automatically deleted from checkpoints by triggers
+                                   #If the thread exists and the session is not active then that thread will be automatically deleted from checkpoints by time based cleanup
             utils.checkpointer.delete_thread(old_thread_id)
     except:
         db.rollback()
         print("connection problem")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="There is some backend problem.Please,Try after some time")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=schemas.DATABASE_ERROR.model_dump())
     
     return {"thread_id": str(session.thread_id)}    
