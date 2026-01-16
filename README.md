@@ -1,7 +1,7 @@
 # NCO 2015 Classification Chatbot
 
 A semantic search and classification system designed to help users identify their `India's` **National Classification of Occupations (NCO) 2015** code.
-The application uses a **FastAPI** backend orchestrated by **LangGraph** to process natural language job descriptions. It employs a multi-agent workflow (Expander → Retriever → Analyzer) to map vague user inputs to specific technical occupation codes, maintained with a **PostgreSQL** database for session management and **ChromaDB** for vector search.
+The application uses a **FastAPI** backend orchestrated by **LangGraph** to process natural language job descriptions. It employs a multi-agent workflow (Expander → Retriever → Analyzer) to map natural user inputs to specific technical occupation codes, maintained with a **PostgreSQL** database for session management and **ChromaDB** for vector search.
 
 ---
 
@@ -25,7 +25,7 @@ The application uses a **FastAPI** backend orchestrated by **LangGraph** to proc
 * **Backend Framework**: FastAPI
 * **LLM Orchestration**: LangGraph, LangChain
 * **LLM Provider**: Groq (Llama-3.1-8b-instant)
-* **Database**: PostgreSQL (Session storage & Graph Checkpoints)
+* **Database**: for deployment purpose, i used supabase(checkpointer db) and neon(user storage), but for local testing one can also use PostgresSQL
 * **Vector Store**: ChromaDB
 * **Embeddings**: chromaDB default model `all-MiniLM-L6-v2`
 * **Frontend**: HTML5, CSS3, Vanilla JavaScript
@@ -62,6 +62,7 @@ Stores session and thread metadata:
 - `thread_closed_at`
 
 This table is the **source of truth** for session state.
+The database(checkpointer and user-db) and user uses time based cleanup jobs to remove/delete the stale threads.
 
 ### 3. Race Condition Prevention
 Race conditions are prevented using:
@@ -82,13 +83,9 @@ This guarantees:
 ------
 
 ## 4. Graph Checkpointer Setup
-The LangGraph workflow uses a PostgreSQL-backed checkpointer provided by langgraph.What is checkpointed:
-* Full graph state after every node execution
-* Messages, expander output, retrieval results, analyzer decision
-
-Why this matters:
-* Allows safe interruption (MORE_INFO)
-* Enables resume without recomputation
+I am using PostgreSQL-backed checkpointer provided by langgraph.
+*It Allows safe interruption (MORE_INFO)
+*It Enables resume without recomputation
 
 Checkpoint data is deleted when a thread completes to avoid stale state reuse.
 
@@ -133,6 +130,7 @@ Checkpoint data is deleted when a thread completes to avoid stale state reuse.
 `https://www.kaggle.com/datasets/shriabhinandansharma/nco-occupation-descriptions-dataset`
 * Groq API key
 * langsmith api key (optional if you want tracing on langsmith)
+* set up neon-db for user-db and supabase for checkpointer-db and store the necessary info in .env file.
 
 ### 1. Clone the Repository
 ```
@@ -149,22 +147,11 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 ### 4.Environment Variables
-```
-database_username=postgres
-database_password=database_password
-database_hostname=localhost
-database_port=5432
-database_name=your_database_name
-checkpointer_database_name=checkpointer_database_name
-groq_api_key=YOUR_GROQ_KEY
-langsmith_tracing=true
-langsmith_endpoint=https://api.smith.langchain.com
-langsmith_api_key=langsmith_api_key
-langsmith_project=langsmith_project_name
-```
+see the .env.example file for this.
+
 ### 5. Prepare Embeddings
 First download the dataset in the current project directory from the kaggle link provided above
-Run the `prepare_embeddings.py` script to prepare embeddings and it will store embeddings in the same directory.To run this, Go in the current project directory in the terminal and then run below command:
+Run the `prepare_embeddings.py` script to prepare embeddings and it will store embeddings in the same directory.To run this script, Go in the current project directory in the terminal and then run below command:
 ```
 python "./prepare_embeddings.py"
 ```
@@ -205,11 +192,6 @@ http://localhost:8000
 └── requirements.txt       # Python dependencies
 ```
 ------
-
-## Notes
-* The backend enforces classification safety, not the frontend
-* Prompts are advisory, the graph is authoritative
-* Ambiguity is handled explicitly, never silently
 
 For deeper details:
 * **PROMPTS.md** → Prompt design & motivation
