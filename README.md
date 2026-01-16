@@ -193,6 +193,6 @@ http://localhost:8000
 ```
 ------
 
-For deeper details:
+For deeper details, see the below files inside docs folder:
 * **PROMPTS.md** → Prompt design & motivation
 * **GRAPH_FLOW.md** → Graph control logic
