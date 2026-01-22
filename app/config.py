@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     database_password: str
     database_region: str
     database_host: str
-    database_username: str
+    database_name: str
     groq_api_key: str
     langsmith_tracing: bool
     langsmith_endpoint: str

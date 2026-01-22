@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph
 from langgraph.types import interrupt
-from typing import TypedDict, List, Annotated, Optional
+from typing import TypedDict, List, Annotated, Optional, Any
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph.message import add_messages
 from langgraph.constants import END
@@ -9,6 +9,7 @@ from .prompts import expander_prompt, analyzer_prompt
 from . import schemas
 from .. import utils
 import uuid
+from langgraph.types import Command
 
 
 llm_expander=utils.llm.with_structured_output(schemas.EXPANDER_OUTPUT_JSON_SCHEMA, method="json_mode")
@@ -18,15 +19,15 @@ llm_analyzer=utils.llm.with_structured_output(schemas.ANALYZER_OUTPUT_JSON_SCHEM
 class State(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     expander_analysis: Annotated[Optional[dict], Field(description="This stores the analysis done by expander")]
-    retrieved_results: Annotated[Optional[dict], Field(description="This stores the results retrieved after semantic search on the search_query sent by node1(expander_node)")]
+    retrieved_results: Annotated[Any, Field(description="This stores the results retrieved after semantic search on the search_query sent by node1(expander_node)")]
     analyzer_response: Annotated[Optional[dict], Field(description="This stores the result of analysis done by the analyzer node")]
     improved_search: Annotated[bool, Field(description="This is an indicator for retrieval_node used to indicate whether the query has come from analyzer or not")]=False
     improved_search_count: Annotated[int, Field(description="This tells us if improved_search has been used before or not by Analyzer.")]=1
     
-def expander_node(state: State):
+async def expander_node(state: State):
     exp_system_prompt=expander_prompt.expander_system_message
     expander_msgs=[exp_system_prompt]+[HumanMessage(content = utils.make_final_message(state['messages']))]
-    expander_raw_response=llm_expander.invoke(expander_msgs)
+    expander_raw_response=await llm_expander.ainvoke(expander_msgs)
     expander_response=schemas.ExpanderOutput.model_validate(expander_raw_response)
     return{                       # while return state modifications from this node
         "expander_analysis": expander_response,
@@ -36,7 +37,7 @@ def expander_node(state: State):
         "improved_search_count": 1
     }
     
-def retrieval_node(state: State):
+async def retrieval_node(state: State):
     
     results=None
     search_query=None
@@ -51,8 +52,8 @@ def retrieval_node(state: State):
         raise ValueError(f"Inconsistent state: Value for is_query_generated is not algined with Value for search_query.")
         
     if search_query is not None:
-        results=utils.collection.query(
-            query_texts=[search_query],
+        results=await utils.search_chroma_async(
+            query_text=search_query,
             n_results=5
         )
 
@@ -65,7 +66,7 @@ def retrieval_node(state: State):
     }
 
 
-def analyzer_node(state: State):
+async def analyzer_node(state: State):
     analyzer_chat_prompt=analyzer_prompt.analyzer_chat_prompt
 
     user_input=utils.make_final_message(state['messages'])
@@ -92,7 +93,7 @@ def analyzer_node(state: State):
     improved_search=False
     count=state['improved_search_count']
     
-    analyzer_raw_result=llm_analyzer.invoke(analyzer_formatted_messages)
+    analyzer_raw_result=await llm_analyzer.ainvoke(analyzer_formatted_messages)
     analyzer_result=schemas.AnalyzerOutput.model_validate(analyzer_raw_result)
     if analyzer_result.status=="IMPROVED_SEARCH":
         improved_search=True
@@ -155,14 +156,14 @@ builder.add_conditional_edges("analyzer_node",improved_search_router, {"user_inf
 builder.add_conditional_edges("user_info_node", user_info_router, {"expander_node": "expander_node", END: END})
 
 builder.set_entry_point("expander_node")
+graph = builder.compile(checkpointer=utils.checkpointer)
 
 config={"configurable": {"thread_id": uuid.uuid4()}}
-
-graph = builder.compile(checkpointer=utils.checkpointer)
 
 
 # Just for testing.You can use it to understand the behaviour of interrupt otherwise ignore
 '''
+import asyncio
 user_input=input("Enter the job description: ")
 initial_input_state={
     "messages": [HumanMessage(content=user_input)],
@@ -172,14 +173,17 @@ initial_input_state={
     "improved_search": False,
     "improved_search_count": 0
 }
-
-result=graph.invoke(initial_input_state, config=config)
+test_graph=builder.compile()
+async def call_graph(input_state):
+    result = await test_graph.ainvoke(input_state)
+    return result
+result=asyncio.run(call_graph(initial_input_state))
 
 while True:
     if "__interrupt__" in result:
         user_response=input(f"{result['__interrupt__'][0].value}:")
     
-        result=graph.invoke(Command(resume=user_response), config=config)
+        result=asyncio.run(call_graph(Command(resume=user_response)))
         break
     else:
         pass

@@ -1,12 +1,15 @@
+import asyncio
 from langchain_groq import ChatGroq
 import chromadb
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
-from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from pathlib import Path
 from .config import settings, EMBEDDINGS_PATH
 import uuid
 from typing import List, Optional
 from .database import checkpointer_pool
+from chromadb.utils import embedding_functions
+from langchain_chroma import Chroma
 from chromadb.utils import embedding_functions
 
 
@@ -20,6 +23,24 @@ llm=ChatGroq(
 client = chromadb.PersistentClient(EMBEDDINGS_PATH)
 default_ef=embedding_functions.DefaultEmbeddingFunction()
 collection=client.get_collection("EmbeddingsV-0.2_all-MiniLM-L6-v2", embedding_function=default_ef)
+
+async def search_chroma_async(query_text: str, n_results: int = 5):
+    
+    def blocking_search():
+        return collection.query(
+            query_texts=[query_text],
+            n_results=n_results
+        )
+    results = await asyncio.to_thread(blocking_search)
+    
+    return results
+'''
+vector_store=Chroma(
+    persist_directory=EMBEDDINGS_PATH,
+    collection_name="EmbeddingsV-0.2_all-MiniLM-L6-v2",
+    embedding_function=embedding_functions.DefaultEmbeddingFunction()
+)
+'''
 
 
 def parse_uuid(value: str) -> Optional[uuid.UUID]:
@@ -56,4 +77,6 @@ def generate_initial_state(msg: str):
     return initial_state_dict
   
 
-checkpointer = PostgresSaver(checkpointer_pool)
+# graph compile and checkpointer 
+
+checkpointer = AsyncPostgresSaver(checkpointer_pool)
